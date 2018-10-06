@@ -10,6 +10,10 @@ import (
 	"projectborealisgitlab.site/project-borealis/programming/dev-ops/aa-server/server"
 )
 
+const (
+	sharedSecretEnv = "SHARED_SECRET"
+)
+
 func main() {
 	rw, err := server.NewResultWriter("results.json")
 	if err != nil {
@@ -17,7 +21,7 @@ func main() {
 	}
 	defer rw.Close()
 
-	s := server.New(rw)
+	s := server.New(rw, os.Getenv(sharedSecretEnv))
 	loggedRouter := handlers.LoggingHandler(os.Stdout, s.Handler())
 
 	srv := &http.Server{

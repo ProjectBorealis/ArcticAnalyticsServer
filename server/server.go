@@ -14,9 +14,6 @@ import (
 )
 
 const (
-	// SharedSecret is the secret shared between client and server.
-	SharedSecret = "this is a secret"
-
 	// AuthorizationHeader is the header containing the token.
 	AuthorizationHeader = "Authorization"
 
@@ -50,11 +47,13 @@ type PerformanceResults struct {
 type Server struct {
 	h  *mux.Router
 	rw *ResultWriter
+
+	sharedSecret string
 }
 
 // New returns a new Server.
-func New(rw *ResultWriter) *Server {
-	s := &Server{rw: rw}
+func New(rw *ResultWriter, sharedSecret string) *Server {
+	s := &Server{rw: rw, sharedSecret: sharedSecret}
 
 	s.h = mux.NewRouter()
 	s.h.HandleFunc("/", s.resultsHandler).Methods("POST").Headers(ContentTypeHeader, "application/json")
@@ -102,7 +101,7 @@ func (s *Server) resultsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// compute and compare hmac
-	mac := hmac.New(sha256.New, []byte(SharedSecret))
+	mac := hmac.New(sha256.New, []byte(s.sharedSecret))
 	mac.Write(buf)
 	if !hmac.Equal(mac.Sum(nil), messageMAC) {
 		w.WriteHeader(http.StatusBadRequest)
@@ -134,7 +133,7 @@ func (s *Server) exampleHandler(w http.ResponseWriter, r *http.Request) {
 
 	body, _ := json.Marshal(pr)
 
-	mac := hmac.New(sha256.New, []byte(SharedSecret))
+	mac := hmac.New(sha256.New, []byte(s.sharedSecret))
 	mac.Write(body)
 
 	fmt.Fprintf(w, "curl -v -H 'Content-Type: application/json' -H 'Authorization: %s' http://%s -d '%s'\n", base64.StdEncoding.EncodeToString(mac.Sum(nil)), r.Host, string(body))
