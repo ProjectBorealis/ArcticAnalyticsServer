@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"sync"
+	"time"
 )
 
 // ResultWriter is a writer for writing json-line results to a file.
@@ -11,6 +12,12 @@ type ResultWriter struct {
 	f   *os.File
 	m   sync.Mutex
 	enc *json.Encoder
+}
+
+// Metadata is additional data to be written to log.
+type Metadata struct {
+	DateTime time.Time `json:"datetime"`
+	IP       string    `json:"ip"`
 }
 
 // NewResultWriter returns a new ResultWriter.
@@ -21,12 +28,17 @@ func NewResultWriter(filename string) (*ResultWriter, error) {
 }
 
 // AppendResults appends PerformanceResults to a log file.
-func (rw *ResultWriter) AppendResults(results *PerformanceResults) error {
+func (rw *ResultWriter) AppendResults(metadata *Metadata, results *PerformanceResults) error {
 	rw.m.Lock()
 	defer rw.m.Unlock()
 	defer rw.f.Sync()
 
-	return rw.enc.Encode(results)
+	type log struct {
+		*Metadata
+		*PerformanceResults
+	}
+
+	return rw.enc.Encode(&log{metadata, results})
 }
 
 // Close closes the underlying file.
