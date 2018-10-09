@@ -31,7 +31,6 @@ func NewResultWriter(filename string) (*ResultWriter, error) {
 func (rw *ResultWriter) AppendResults(metadata *Metadata, results *PerformanceResults) error {
 	rw.m.Lock()
 	defer rw.m.Unlock()
-	defer rw.f.Sync()
 
 	type log struct {
 		*Metadata
