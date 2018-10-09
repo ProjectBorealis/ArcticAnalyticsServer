@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"time"
 
 	"github.com/gorilla/handlers"
@@ -17,13 +18,14 @@ const (
 
 var (
 	behindProxy = flag.Bool("behind-proxy", false, "whether server is running behind a reverse proxy.")
-	httpPort    = flag.Int("port", 9095, "http server port")
+	httpAddr    = flag.String("addr", ":9095", "http server port")
+	dataDir     = flag.String("data-dir", "./", "data directory")
 )
 
 func main() {
 	flag.Parse()
 
-	rw, err := server.NewResultWriter("results.json")
+	rw, err := server.NewResultWriter(path.Join(*dataDir, "results.json"))
 	if err != nil {
 		panic(err)
 	}
@@ -43,7 +45,10 @@ func main() {
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		Handler:      handler,
-		Addr:         ":9095",
+		Addr:         *httpAddr,
 	}
+
+	log.Printf("Data directory: %v\n", *dataDir)
+	log.Printf("Listening %v...\n", *httpAddr)
 	log.Println(srv.ListenAndServe())
 }
