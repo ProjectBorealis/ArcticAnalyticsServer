@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	sharedSecretEnv = "SHARED_SECRET"
+	sharedSecretEnv  = "SHARED_SECRET"
+	adminPasswordEnv = "ADMIN_PASSWORD"
 )
 
 var (
@@ -31,7 +32,7 @@ func main() {
 	}
 	defer rw.Close()
 
-	handler := server.New(rw, os.Getenv(sharedSecretEnv)).Handler()
+	handler := server.New(rw, os.Getenv(sharedSecretEnv), os.Getenv(adminPasswordEnv)).Handler()
 
 	// enable proxy middleware if behind a proxy
 	if *behindProxy {
@@ -40,6 +41,9 @@ func main() {
 
 	// enable logging
 	handler = handlers.LoggingHandler(os.Stdout, handler)
+
+	// enable compression
+	handler = handlers.CompressHandler(handler)
 
 	srv := &http.Server{
 		ReadTimeout:  5 * time.Second,

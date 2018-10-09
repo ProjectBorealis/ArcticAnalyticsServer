@@ -40,6 +40,11 @@ func (rw *ResultWriter) AppendResults(metadata *Metadata, results *PerformanceRe
 	return rw.enc.Encode(&log{metadata, results})
 }
 
+// Filename returns the result writer's filename.
+func (rw *ResultWriter) Filename() string {
+	return rw.f.Name()
+}
+
 // Close closes the underlying file.
 func (rw *ResultWriter) Close() error {
 	return rw.f.Close()

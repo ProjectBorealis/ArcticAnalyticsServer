@@ -3,12 +3,17 @@ package server
 import (
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -49,15 +54,21 @@ type Server struct {
 	h  *mux.Router
 	rw *ResultWriter
 
-	sharedSecret string
+	sharedSecret  string
+	adminPassword string
 }
 
 // New returns a new Server.
-func New(rw *ResultWriter, sharedSecret string) *Server {
-	s := &Server{rw: rw, sharedSecret: sharedSecret}
+func New(rw *ResultWriter, sharedSecret, adminPassword string) *Server {
+	s := &Server{
+		rw:            rw,
+		sharedSecret:  sharedSecret,
+		adminPassword: adminPassword,
+	}
 
 	s.h = mux.NewRouter()
-	s.h.HandleFunc("/v1/user/performance", s.resultsHandler).Methods("POST").Headers(ContentTypeHeader, "application/json")
+	s.h.HandleFunc("/v1/user/performance", s.postResultsHandler).Methods("POST").Headers(ContentTypeHeader, "application/json")
+	s.h.HandleFunc("/v1/user/performance/csv", s.getResultsHandlerCSV).Methods("GET")
 	s.h.HandleFunc("/example", s.exampleHandler).Methods("GET")
 
 	return s
@@ -68,7 +79,7 @@ func (s *Server) Handler() http.Handler {
 	return s.h
 }
 
-func (s *Server) resultsHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Server) postResultsHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	// decode hmac
@@ -137,6 +148,87 @@ func (s *Server) resultsHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+}
+
+func (s *Server) getResultsHandlerCSV(w http.ResponseWriter, r *http.Request) {
+	username, password, ok := r.BasicAuth()
+	if !ok || username != "admin" || subtle.ConstantTimeCompare([]byte(password), []byte(s.adminPassword)) != 1 {
+		w.Header().Set("WWW-Authenticate", `Basic realm="Private"`)
+		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+		return
+	}
+
+	f, err := os.Open(s.rw.Filename())
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
+
+	fn := func(cb func(*PerformanceResults)) bool {
+		f.Seek(0, 0)
+		dec := json.NewDecoder(f)
+		var pr PerformanceResults
+		for {
+			if err := dec.Decode(&pr); err != nil {
+				if err == io.EOF {
+					break
+				} else {
+					log.Printf("Error reading results file: %v\n", err)
+					http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+					return false
+				}
+			}
+
+			cb(&pr)
+		}
+		return true
+	}
+
+	// initial pass to build header
+	uniqueEventHeaders := make(map[string]struct{})
+	success := fn(func(pr *PerformanceResults) {
+		for _, e := range pr.Events {
+			for _, a := range e.Attributes {
+				uniqueEventHeaders[e.EventName+"."+a.Name] = struct{}{}
+			}
+		}
+	})
+	if !success {
+		return
+	}
+
+	// sort headers
+	eventHeaders := make([]string, 0, len(uniqueEventHeaders))
+	for header := range uniqueEventHeaders {
+		eventHeaders = append(eventHeaders, header)
+	}
+	sort.Strings(eventHeaders)
+
+	// build header
+	headers := append([]string{"sessionId", "buildInfo"}, eventHeaders...)
+	c := csv.NewWriter(w)
+	c.Write(headers)
+
+	// write results
+	defer c.Flush()
+	fn(func(pr *PerformanceResults) {
+		fields := make([]string, len(headers))
+		fields[0] = pr.SessionID
+		fields[1] = pr.BuildInfo
+
+		for i, key := range headers {
+			for _, e := range pr.Events {
+				for _, a := range e.Attributes {
+					if key == e.EventName+"."+a.Name {
+						fields[i] = a.Value
+					}
+				}
+			}
+		}
+
+		c.Write(fields)
+	})
 }
 
 func (s *Server) exampleHandler(w http.ResponseWriter, r *http.Request) {
