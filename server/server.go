@@ -85,6 +85,12 @@ func (s *Server) resultsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// validate
+	if err = validate(buf); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	// unmarshal results
 	var results PerformanceResults
 	if err = json.Unmarshal(buf, &results); err != nil {
