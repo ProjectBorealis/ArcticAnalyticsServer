@@ -57,7 +57,7 @@ func New(rw *ResultWriter, sharedSecret string) *Server {
 	s := &Server{rw: rw, sharedSecret: sharedSecret}
 
 	s.h = mux.NewRouter()
-	s.h.HandleFunc("/", s.resultsHandler).Methods("POST").Headers(ContentTypeHeader, "application/json")
+	s.h.HandleFunc("/v1/user/performance", s.resultsHandler).Methods("POST").Headers(ContentTypeHeader, "application/json")
 	s.h.HandleFunc("/example", s.exampleHandler).Methods("GET")
 
 	return s
@@ -160,5 +160,5 @@ func (s *Server) exampleHandler(w http.ResponseWriter, r *http.Request) {
 	mac := hmac.New(sha256.New, []byte(s.sharedSecret))
 	mac.Write(body)
 
-	fmt.Fprintf(w, "curl -v -H 'Content-Type: application/json' -H 'Authorization: %s' http://%s -d '%s'\n", hex.EncodeToString(mac.Sum(nil)), r.Host, string(body))
+	fmt.Fprintf(w, "curl -v -H 'Content-Type: application/json' -H 'Authorization: %s' https://%s/v1/user/performance -d '%s'\n", hex.EncodeToString(mac.Sum(nil)), r.Host, string(body))
 }
