@@ -14,7 +14,7 @@
     "basic-auth": "^2.0.1",
     "csv-writer": "^1.6.0",
     "dotenv": "^16.4.5",
-    "express": "^4.21.0"
-  },
-  "devDependencies": {}
+    "express": "^4.21.0",
+    "sqlite3": "^5.1.7"
+  }
 }

@@ -1,27 +1,23 @@
 const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
-const ResultWriter = require('./server/resultswriter');
+const ResultWriter = require('./server/resultswriter'); // Make sure the path is correct
 const Server = require('./server/server');
 
 // Load environment variables
 dotenv.config();
 
-const dataDir = './results'; // Example data directory
+const dbPath = path.join(__dirname, 'performance_results.db'); // SQLite database path
 const port = 9095;
 
-// Ensure the results directory exists
-if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-}
-
+// Initialize the ResultWriter with the SQLite database path
 (async () => {
     let resultWriter; // Declare resultWriter here for scope
     try {
-        resultWriter = await ResultWriter.create(path.join(dataDir, 'results.json'));
+        resultWriter = await ResultWriter.create(dbPath); // Use SQLite database instead of JSON
         const server = new Server(resultWriter, process.env.SHARED_SECRET, process.env.ADMIN_PASSWORD);
 
-        server.listen(port);
+        await server.listen(port); // Wait for the server to start
         console.log(`Listening on port ${port}...`);
 
         // Graceful shutdown handling

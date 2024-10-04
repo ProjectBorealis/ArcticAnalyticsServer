@@ -3,3 +3,5 @@ results/
 results/*
 node_modules/
 package-lock.json
+server/results.csv
+performance_results.db

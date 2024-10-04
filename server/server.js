@@ -10,7 +10,7 @@ const { validateSchema } = require('./validate');
 
 class Server {
     constructor(resultWriter, sharedSecret, adminPassword) {
-        this.resultWriter = resultWriter;
+        this.resultWriter = resultWriter; // ResultWriter instance
         this.sharedSecret = sharedSecret;
         this.adminPassword = adminPassword;
         this.app = express();
@@ -65,28 +65,37 @@ class Server {
             return;
         }
 
-        const fileContents = await fs.readFile(this.resultWriter.getFilename(), 'utf-8');
-        const results = fileContents.split('\n').filter(Boolean).map(JSON.parse);
+        // Retrieve all results from the database using the ResultWriter
+        const results = await this.resultWriter.getResults();
 
-        const headers = results.reduce((acc, result) => {
-            result.events.forEach(event => {
-                event.attributes.forEach(attr => {
-                    acc.add(`${event.eventName}.${attr.name}`);
-                });
-            });
-            return acc;
-        }, new Set());
+        // Prepare data for CSV
+        const csvData = results.map(result => {
+            const data = JSON.parse(result.data); // Assuming data is JSON string
+            return {
+                perfID: result.perfID,
+                datetime: result.datetime,
+                ip: result.ip,
+                sessionId: data.sessionId, // Include sessionId directly
+                userId: data.userId, // Include userId directly
+                events: JSON.stringify(data.events) // Stringify the events object
+            };
+        });
+
+        // Get dynamic headers
+        const headers = Object.keys(csvData[0] || {}).map(key => ({ id: key, title: key }));
 
         const csvFilePath = path.join(__dirname, 'results.csv');
         const writer = csvWriter({
             path: csvFilePath,
-            header: [{ id: 'sessionId', title: 'Session ID' }, ...Array.from(headers).map(h => ({ id: h, title: h }))],
+            header: headers,
         });
 
-        await writer.writeRecords(results); // Convert JSON to CSV
+        await writer.writeRecords(csvData); // Convert JSON to CSV
 
         res.download(csvFilePath);
     }
+
+    
 
     exampleHandler(req, res) {
         const performanceResults = {
@@ -107,10 +116,15 @@ class Server {
         res.send(`curl -v -H 'Content-Type: application/json' -H 'Authorization: ${authHeader}' http://${req.headers.host}/v1/user/performance -d '${body}'`);
     }
 
-    listen(port) {
-        this.app.listen(port, () => {
-            console.log(`Server listening on port ${port}`);
-        });
+    async listen(port) {
+        try {
+            await this.resultWriter.initialize(); // Initialize DB and create table if needed
+            this.app.listen(port, () => {
+                console.log(`Server listening on port ${port}`);
+            });
+        } catch (error) {
+            console.error('Failed to initialize result writer:', error);
+        }
     }
 }
 
