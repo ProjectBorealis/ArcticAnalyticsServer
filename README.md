@@ -2,23 +2,16 @@
 
 Basic server for saving performance analytics to a file.
 
-### Building
-
-##### With Go tools
-`$ go build`
-
-##### With Docker / Makefile
-`$ make build`
-
-### Running
-
-##### With binary
+### Dependencies
 ```
-# only use --behind-proxy if you trust X-Forwarded-For headers.
-$ ./aa-server --behind-proxy --addr :80
+npm install express basic-auth csv-writer ajv dotenv
 ```
 
-##### With docker
+### Run Server
 ```
-$ make run
+node main.js
 ```
+
+#### Notes
+* Authorization timing is not working properly.
+* Currently writing to file instead creating a database 

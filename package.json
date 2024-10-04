@@ -1,0 +1,20 @@
+{
+  "name": "aa",
+  "version": "1.0.0",
+  "description": "Basic server for saving performance analytics to a file.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "basic-auth": "^2.0.1",
+    "csv-writer": "^1.6.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0"
+  },
+  "devDependencies": {}
+}
